@@ -128,6 +128,9 @@ interface MessageStore {
 
     /** Removes all local messages, contacts, and conversations. */
     suspend fun clearAllData(): Result<Unit>
+
+    /** Opens the encrypted database before first UI access (Android SQLCipher). */
+    suspend fun ensureReady(): Result<Unit> = Result.success(Unit)
 }
 
 /** Secure identity and device key storage — Secure Enclave / Keystore (Phase 3). */

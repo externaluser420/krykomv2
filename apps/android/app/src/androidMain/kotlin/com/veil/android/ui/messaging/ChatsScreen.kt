@@ -61,54 +61,47 @@ fun ChatsScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     var syncStatus by remember { mutableStateOf<String?>(null) }
 
-    fun loadConversations(showLoading: Boolean = false) {
-        scope.launch {
-            if (showLoading) isLoading = true
-            try {
-                val contacts = contactService.listContacts()
-                val previews =
-                    contacts.map { contact ->
-                        val messages = messageRepository.loadChatMessages(contact)
-                        val last = messages.lastOrNull()
-                        ConversationPreview(
-                            contact = contact,
-                            lastMessage = last?.body,
-                            lastMessageTime = last?.sentAtEpochMs,
-                            unreadCount = 0,
-                        )
-                    }.sortedByDescending { it.lastMessageTime ?: 0L }
-                conversations = previews
-            } catch (_: Exception) {
-                syncStatus = "Couldn't load conversations"
-            } finally {
-                isLoading = false
-                isRefreshing = false
-            }
-        }
+    suspend fun refreshConversations() {
+        val contacts = contactService.listContacts()
+        val previews =
+            contacts.map { contact ->
+                val messages = messageRepository.loadChatMessages(contact)
+                val last = messages.lastOrNull()
+                ConversationPreview(
+                    contact = contact,
+                    lastMessage = last?.body,
+                    lastMessageTime = last?.sentAtEpochMs,
+                    unreadCount = 0,
+                )
+            }.sortedByDescending { it.lastMessageTime ?: 0L }
+        conversations = previews
     }
 
-    fun syncMessages(onDone: () -> Unit = {}) {
-        scope.launch {
-            messageRepository.syncIncoming()
-                .onSuccess { incoming ->
-                    syncStatus =
-                        if (incoming.isEmpty()) {
-                            "Up to date"
-                        } else {
-                            "${incoming.size} new message${if (incoming.size > 1) "s" else ""}"
-                        }
-                    loadConversations()
-                }
-                .onFailure {
-                    syncStatus = "Sync failed"
-                }
-            onDone()
-        }
+    suspend fun syncMessages() {
+        messageRepository.syncIncoming()
+            .onSuccess { incoming ->
+                syncStatus =
+                    if (incoming.isEmpty()) {
+                        "Up to date"
+                    } else {
+                        "${incoming.size} new message${if (incoming.size > 1) "s" else ""}"
+                    }
+            }
+            .onFailure {
+                syncStatus = "Sync failed"
+            }
     }
 
     LaunchedEffect(Unit) {
-        syncMessages()
-        loadConversations(showLoading = true)
+        isLoading = true
+        try {
+            syncMessages()
+            refreshConversations()
+        } catch (_: Throwable) {
+            syncStatus = "Couldn't load conversations"
+        } finally {
+            isLoading = false
+        }
     }
 
     val filteredConversations =
@@ -137,8 +130,17 @@ fun ChatsScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            isRefreshing = true
-                            syncMessages { isRefreshing = false }
+                            scope.launch {
+                                isRefreshing = true
+                                try {
+                                    syncMessages()
+                                    refreshConversations()
+                                } catch (_: Throwable) {
+                                    syncStatus = "Sync failed"
+                                } finally {
+                                    isRefreshing = false
+                                }
+                            }
                         },
                     ) {
                         Icon(Icons.Default.Sync, contentDescription = "Sync messages")
@@ -212,8 +214,17 @@ fun ChatsScreen(
                     PullToRefreshBox(
                         isRefreshing = isRefreshing,
                         onRefresh = {
-                            isRefreshing = true
-                            syncMessages { isRefreshing = false }
+                            scope.launch {
+                                isRefreshing = true
+                                try {
+                                    syncMessages()
+                                    refreshConversations()
+                                } catch (_: Throwable) {
+                                    syncStatus = "Sync failed"
+                                } finally {
+                                    isRefreshing = false
+                                }
+                            }
                         },
                         modifier = Modifier.fillMaxSize(),
                     ) {

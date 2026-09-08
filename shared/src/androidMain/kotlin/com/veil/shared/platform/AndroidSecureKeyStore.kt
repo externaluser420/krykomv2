@@ -75,7 +75,7 @@ class AndroidSecureKeyStore(
                     .putString(KEY_ONETIME_PREKEY, encode(generated.material.oneTimePreKeySerialized))
                     .putString(KEY_KYBER_PREKEY, encode(generated.material.kyberPreKeySerialized))
                     .putString(KEY_DB_PASSPHRASE, encode(dbPassphrase))
-                    .apply()
+                    .commit()
 
                 Result.success(generated.result)
             }

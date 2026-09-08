@@ -26,6 +26,24 @@ class SqlCipherMessageStore(
     private var database: VeilDatabase? = null
     private val dbMutex = Mutex()
 
+    override suspend fun ensureReady(): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                db().openHelper.writableDatabase
+                Result.success(Unit)
+            } catch (e: Exception) {
+                dbMutex.withLock {
+                    try {
+                        database?.close()
+                    } catch (_: Exception) {
+                        // Ignore close failures while resetting a broken handle.
+                    }
+                    database = null
+                }
+                Result.failure(e)
+            }
+        }
+
     private suspend fun db(): VeilDatabase {
         val existing = database
         if (existing != null) return existing
@@ -35,9 +53,12 @@ class SqlCipherMessageStore(
     }
 
     private suspend fun buildDatabase(): VeilDatabase {
+        val appContext = context.applicationContext
+        val dbFile = appContext.getDatabasePath(DB_NAME)
+        dbFile.parentFile?.mkdirs()
         val passphrase = secureKeyStore.getDatabasePassphrase()
         val factory = SupportOpenHelperFactory(passphrase)
-        return Room.databaseBuilder(context.applicationContext, VeilDatabase::class.java, "veil_encrypted.db")
+        return Room.databaseBuilder(appContext, VeilDatabase::class.java, dbFile.absolutePath)
             .openHelperFactory(factory)
             .fallbackToDestructiveMigration()
             .build()
@@ -89,13 +110,17 @@ class SqlCipherMessageStore(
                 try {
                     database?.close()
                     database = null
-                    context.applicationContext.deleteDatabase("veil_encrypted.db")
+                    context.applicationContext.deleteDatabase(DB_NAME)
                     Result.success(Unit)
                 } catch (e: Exception) {
                     Result.failure(e)
                 }
             }
         }
+
+    companion object {
+        private const val DB_NAME = "veil_encrypted.db"
+    }
 }
 
 private fun Message.toEntity() =

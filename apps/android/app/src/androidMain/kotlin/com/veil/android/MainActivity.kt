@@ -100,6 +100,7 @@ fun VeilRoot() {
     val lifecycleOwner = LocalLifecycleOwner.current
     var screen by remember { mutableStateOf(AppScreen.Loading) }
     var lockOnResume by remember { mutableStateOf(false) }
+    var skipLockOnce by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         screen =
@@ -119,11 +120,16 @@ fun VeilRoot() {
                     }
                     Lifecycle.Event.ON_START -> {
                         if (lockOnResume && screen == AppScreen.Home) {
-                            scope.launch {
-                                if (appLockService.isEnabled()) {
-                                    screen = AppScreen.Lock
-                                }
+                            if (skipLockOnce) {
+                                skipLockOnce = false
                                 lockOnResume = false
+                            } else {
+                                scope.launch {
+                                    if (appLockService.isEnabled()) {
+                                        screen = AppScreen.Lock
+                                    }
+                                    lockOnResume = false
+                                }
                             }
                         }
                     }
@@ -143,7 +149,11 @@ fun VeilRoot() {
         }
         AppScreen.Onboarding ->
             OnboardingScreen(
-                onComplete = { screen = AppScreen.Home },
+                onComplete = {
+                    skipLockOnce = true
+                    lockOnResume = false
+                    screen = AppScreen.Home
+                },
             )
         AppScreen.Lock ->
             AppLockScreen(

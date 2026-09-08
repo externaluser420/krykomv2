@@ -34,6 +34,7 @@ import com.veil.android.ui.theme.VeilAccent
 import com.veil.android.ui.theme.VeilSpacing
 import com.veil.shared.domain.service.AppLockService
 import com.veil.shared.domain.service.IdentityService
+import com.veil.shared.domain.port.MessageStore
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -47,6 +48,7 @@ private enum class OnboardingStep {
 fun OnboardingScreen(onComplete: () -> Unit) {
     val identityService: IdentityService = koinInject()
     val appLockService: AppLockService = koinInject()
+    val messageStore: MessageStore = koinInject()
     val scope = rememberCoroutineScope()
 
     var step by remember { mutableIntStateOf(OnboardingStep.Welcome.ordinal) }
@@ -120,7 +122,14 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                                 try {
                                     appLockService
                                         .setPin(pin)
-                                        .onSuccess { onComplete() }
+                                        .onSuccess {
+                                            messageStore.ensureReady()
+                                                .onSuccess { onComplete() }
+                                                .onFailure {
+                                                    error =
+                                                        "Couldn't prepare secure storage. Please try again."
+                                                }
+                                        }
                                         .onFailure { err -> error = err.message ?: "Couldn't set PIN" }
                                 } catch (e: Exception) {
                                     error = "Couldn't save PIN. Please try again."
