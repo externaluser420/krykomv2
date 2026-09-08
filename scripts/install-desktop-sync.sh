@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Install automatic Desktop sync so ~/Desktop/krykom2 stays updated after GitHub pushes.
+# Install automatic Desktop sync so ~/Desktop/krykomv2 stays updated after GitHub pushes.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SYNC_SCRIPT="$SCRIPT_DIR/sync-desktop-repo.sh"
-DESKTOP_REPO="${VEIL_DESKTOP_REPO:-$HOME/Desktop/krykom2}"
+DESKTOP_REPO="${VEIL_DESKTOP_REPO:-$HOME/Desktop/krykomv2}"
 BRANCH="${VEIL_SYNC_BRANCH:-cursor/premium-gui-redesign-e58c}"
 INTERVAL="${VEIL_SYNC_INTERVAL:-120}"
 LABEL="com.veil.desktop-sync"

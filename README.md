@@ -96,12 +96,12 @@ The emulator reaches your computer's localhost relay at `http://10.0.2.2:8080` (
 ### Keep Desktop folder in sync with GitHub
 
 If you work in the cloud (Cursor Agent) but also have a local copy on Desktop
-(e.g. `~/Desktop/krykom2`), install auto-sync **once on your computer**.
+(e.g. `~/Desktop/krykomv2`), install auto-sync **once on your computer**.
 
 #### Windows 11 (PowerShell)
 
 ```powershell
-cd $env:USERPROFILE\Desktop\krykom2
+cd $env:USERPROFILE\Desktop\krykomv2
 powershell -ExecutionPolicy Bypass -File scripts\install-desktop-sync.ps1
 ```
 
@@ -109,8 +109,8 @@ First-time setup (if the folder does not exist yet):
 
 ```powershell
 cd $env:USERPROFILE\Desktop
-git clone https://github.com/externaluser420/krykomv2.git krykom2
-cd krykom2
+git clone https://github.com/externaluser420/krykomv2.git krykomv2
+cd krykomv2
 git checkout cursor/premium-gui-redesign-e58c
 powershell -ExecutionPolicy Bypass -File scripts\install-desktop-sync.ps1
 ```
@@ -130,7 +130,7 @@ powershell -ExecutionPolicy Bypass -File scripts\uninstall-desktop-sync.ps1
 #### macOS / Linux (bash)
 
 ```bash
-cd ~/Desktop/krykom2
+cd ~/Desktop/krykomv2
 bash scripts/install-desktop-sync.sh
 ```
 

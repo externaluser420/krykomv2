@@ -2,7 +2,7 @@
 param(
     [ValidateSet("once", "watch", "path")]
     [string]$Mode = "once",
-    [string]$DesktopRepo = "$env:USERPROFILE\Desktop\krykom2",
+    [string]$DesktopRepo = "$env:USERPROFILE\Desktop\krykomv2",
     [string]$Branch = "cursor/premium-gui-redesign-e58c",
     [string]$RepoUrl = "https://github.com/externaluser420/krykomv2.git",
     [int]$IntervalSeconds = 120
@@ -27,14 +27,17 @@ function Sync-Repo {
         git fetch origin --prune
         if ($LASTEXITCODE -ne 0) { throw "git fetch failed" }
 
-        $localBranch = git show-ref --verify --quiet "refs/heads/$Branch"; $hasLocal = ($LASTEXITCODE -eq 0)
-        git show-ref --verify --quiet "refs/remotes/origin/$Branch" | Out-Null
+        git show-ref --verify --quiet "refs/heads/$Branch" 2>$null
+        $hasLocal = ($LASTEXITCODE -eq 0)
+        git show-ref --verify --quiet "refs/remotes/origin/$Branch" 2>$null
         $hasRemote = ($LASTEXITCODE -eq 0)
 
         if ($hasLocal) {
             git checkout $Branch
+            if ($LASTEXITCODE -ne 0) { throw "git checkout failed" }
         } elseif ($hasRemote) {
             git checkout -B $Branch "origin/$Branch"
+            if ($LASTEXITCODE -ne 0) { throw "git checkout failed" }
         } else {
             Write-Log "Branch '$Branch' not found on remote. Staying on current branch."
             git pull --ff-only 2>$null

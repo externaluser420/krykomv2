@@ -4,7 +4,7 @@
 set -euo pipefail
 
 REPO_URL="${VEIL_REPO_URL:-https://github.com/externaluser420/krykomv2.git}"
-DESKTOP_REPO="${VEIL_DESKTOP_REPO:-$HOME/Desktop/krykom2}"
+DESKTOP_REPO="${VEIL_DESKTOP_REPO:-$HOME/Desktop/krykomv2}"
 BRANCH="${VEIL_SYNC_BRANCH:-cursor/premium-gui-redesign-e58c}"
 INTERVAL="${VEIL_SYNC_INTERVAL:-120}"
 
@@ -17,10 +17,10 @@ resolve_desktop_path() {
   fi
   case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*)
-      printf '%s/Desktop/krykom2' "${USERPROFILE:-$HOME}"
+      printf '%s/Desktop/krykomv2' "${USERPROFILE:-$HOME}"
       ;;
     *)
-      printf '%s/Desktop/krykom2' "$HOME"
+      printf '%s/Desktop/krykomv2' "$HOME"
       ;;
   esac
 }

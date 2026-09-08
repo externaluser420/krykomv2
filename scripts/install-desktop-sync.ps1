@@ -1,6 +1,6 @@
-# Install Windows Task Scheduler job to sync Desktop/krykom2 every 2 minutes.
+# Install Windows Task Scheduler job to sync Desktop/krykomv2 every 2 minutes.
 param(
-    [string]$DesktopRepo = "$env:USERPROFILE\Desktop\krykom2",
+    [string]$DesktopRepo = "$env:USERPROFILE\Desktop\krykomv2",
     [string]$Branch = "cursor/premium-gui-redesign-e58c",
     [int]$IntervalMinutes = 2
 )
