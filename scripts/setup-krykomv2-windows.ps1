@@ -34,8 +34,19 @@ Log "Up to date: $Branch @ $(git rev-parse --short HEAD)"
 # --- 3. Scheduled task via .cmd wrapper (handles spaces in path) ---
 $SyncCmd = Join-Path $DesktopRepo "scripts\sync-now.cmd"
 
+if (-not (Test-Path (Split-Path $SyncCmd))) {
+    New-Item -ItemType Directory -Force -Path (Split-Path $SyncCmd) | Out-Null
+}
+
 if (-not (Test-Path $SyncCmd)) {
-    throw "Missing $SyncCmd — run 'git pull' first to get latest scripts."
+    @"
+@echo off
+cd /d "%~dp0.."
+git fetch origin --prune
+git checkout $Branch 2>nul
+git pull --ff-only origin $Branch
+"@ | Set-Content -Path $SyncCmd -Encoding ASCII
+    Log "Created $SyncCmd"
 }
 
 schtasks /Delete /F /TN $TaskName 2>$null | Out-Null
