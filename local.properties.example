@@ -1,0 +1,13 @@
+# Copy to local.properties in the repo root (gitignored).
+# Android Studio usually creates this file automatically on first open.
+
+# macOS (default Android Studio location):
+# sdk.dir=/Users/YOUR_USERNAME/Library/Android/sdk
+
+# Linux:
+# sdk.dir=/home/YOUR_USERNAME/Android/Sdk
+
+# Windows (note escaped backslashes):
+# sdk.dir=C\:\\Users\\YOUR_USERNAME\\AppData\\Local\\Android\\Sdk
+
+sdk.dir=/path/to/Android/sdk

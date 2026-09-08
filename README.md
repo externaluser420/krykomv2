@@ -61,10 +61,37 @@ cargo run -p veil-relay
 ### Android app (requires Android SDK)
 
 ```bash
-cp apps/android/local.properties.example apps/android/local.properties
-# Edit sdk.dir
+cp local.properties.example local.properties
+# Edit sdk.dir to your Android SDK path (Android Studio sets this automatically)
 ./gradlew :apps:android:app:assembleDebug
 ```
+
+### Android Studio + emulator (recommended for UI work)
+
+**Important:** Do **not** click "New Project". Open the existing repo:
+
+1. Android Studio → **File → Open**
+2. Select the **repository root** folder (the one containing `settings.gradle.kts`)
+3. Wait for Gradle sync to finish
+4. Create/start an emulator:
+   - **Device Manager** (phone icon in toolbar) → **Create Device** → Pixel 7 → API 35 → Finish → **Run ▶**
+   - Or from terminal: `bash scripts/create-android-emulator.sh`
+5. Start the relay server in a separate terminal:
+   ```bash
+   cargo run -p veil-relay
+   ```
+6. Run the app: select run configuration **`app`** and press **Run ▶**
+
+The emulator reaches your computer's localhost relay at `http://10.0.2.2:8080` (already configured in `build.gradle.kts`).
+
+**Troubleshooting**
+
+| Problem | Fix |
+|---------|-----|
+| "SDK location not found" | Create `local.properties` with `sdk.dir=...` (see `local.properties.example`) |
+| Gradle sync fails | Use JDK 17+, open repo **root** not `apps/android/app` |
+| Emulator won't start | Enable virtualization (BIOS/Hyper-V/WHPX), install HAXM/WHPX |
+| App can't connect to relay | Start `cargo run -p veil-relay` before sending messages |
 
 ### Docker (optional)
 
