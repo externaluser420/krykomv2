@@ -50,9 +50,9 @@ if (-not (Test-Path $SyncScript)) {
         -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SyncScript`" -Mode once -DesktopRepo `"$DesktopRepo`" -Branch `"$Branch`""
 
     $trigger = New-ScheduledTaskTrigger `
-        -Once -At (Get-Date) `
+        -Daily -At "00:00" `
         -RepetitionInterval (New-TimeSpan -Minutes $IntervalMin) `
-        -RepetitionDuration ([TimeSpan]::MaxValue)
+        -RepetitionDuration (New-TimeSpan -Hours 23 -Minutes 59)
 
     $settings = New-ScheduledTaskSettingsSet `
         -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
