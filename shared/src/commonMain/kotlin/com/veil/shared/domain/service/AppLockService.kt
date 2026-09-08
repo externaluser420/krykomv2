@@ -30,6 +30,8 @@ class AppLockService(
     companion object {
         const val PIN_MIN = 4
         const val PIN_MAX = 8
+        /** Fixed PIN length used in the UI (lock + onboarding). */
+        const val PIN_LENGTH = 6
 
         /** Simple hash for Phase 3 — platform store holds hash in EncryptedSharedPreferences. */
         internal fun hashPin(pin: String): String {

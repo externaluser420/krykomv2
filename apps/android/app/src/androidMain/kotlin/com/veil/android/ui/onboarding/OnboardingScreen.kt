@@ -112,14 +112,19 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                             scope.launch {
                                 loading = true
                                 error = null
-                                if (pin.length < AppLockService.PIN_MIN) {
-                                    error = "PIN must be at least ${AppLockService.PIN_MIN} digits"
+                                if (pin.length != AppLockService.PIN_LENGTH) {
+                                    error = "PIN must be exactly ${AppLockService.PIN_LENGTH} digits"
                                     loading = false
                                     return@launch
                                 }
-                                appLockService.setPin(pin)
-                                    .onSuccess { onComplete() }
-                                    .onFailure { error = it.message ?: "Couldn't set PIN" }
+                                try {
+                                    appLockService
+                                        .setPin(pin)
+                                        .onSuccess { onComplete() }
+                                        .onFailure { err -> error = err.message ?: "Couldn't set PIN" }
+                                } catch (e: Exception) {
+                                    error = "Couldn't save PIN. Please try again."
+                                }
                                 loading = false
                             }
                         },
@@ -224,13 +229,13 @@ private fun SetPinStep(
         VeilPinInput(
             pin = pin,
             onPinChange = onPinChange,
-            length = 6,
+            length = AppLockService.PIN_LENGTH,
             enabled = !loading,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(VeilSpacing.sm))
         Text(
-            text = "${AppLockService.PIN_MIN}–${AppLockService.PIN_MAX} digits",
+            text = "${AppLockService.PIN_LENGTH} digits required",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -238,7 +243,7 @@ private fun SetPinStep(
         VeilPrimaryButton(
             text = "Continue",
             loading = loading,
-            enabled = pin.length >= AppLockService.PIN_MIN,
+            enabled = pin.length == AppLockService.PIN_LENGTH,
             onClick = onContinue,
         )
     }

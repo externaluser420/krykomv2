@@ -44,8 +44,12 @@ class AndroidAppLockStore(
     override suspend fun setPinHash(hash: String): Result<Unit> =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                prefs.edit().putString(KEY_PIN_HASH, hash).apply()
-                Result.success(Unit)
+                try {
+                    prefs.edit().putString(KEY_PIN_HASH, hash).commit()
+                    Result.success(Unit)
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
             }
         }
 

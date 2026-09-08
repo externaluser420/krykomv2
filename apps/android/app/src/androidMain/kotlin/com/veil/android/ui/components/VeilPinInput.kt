@@ -41,7 +41,11 @@ fun VeilPinInput(
     LaunchedEffect(autoFocus) {
         if (autoFocus) {
             delay(300)
-            focusRequester.requestFocus()
+            try {
+                focusRequester.requestFocus()
+            } catch (_: IllegalStateException) {
+                // Focus target not ready yet — ignore.
+            }
         }
     }
 

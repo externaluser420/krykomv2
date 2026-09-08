@@ -1,7 +1,6 @@
 package com.veil.android.ui.lock
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,7 +17,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
 import com.veil.android.ui.components.VeilBrandMark
 import com.veil.android.ui.components.VeilErrorBanner
@@ -35,24 +32,25 @@ fun AppLockScreen(onUnlocked: () -> Unit) {
     val scope = rememberCoroutineScope()
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    var shakeError by remember { mutableStateOf(false) }
+    var verifying by remember { mutableStateOf(false) }
 
-    val errorAlpha by animateFloatAsState(
-        targetValue = if (shakeError) 1f else 1f,
-        animationSpec = tween(300),
-        label = "errorAlpha",
-    )
-
-    LaunchedEffect(pin) {
-        if (pin.length >= AppLockService.PIN_MIN) {
-            scope.launch {
-                if (appLockService.verifyPin(pin)) {
+    fun tryUnlock(currentPin: String) {
+        if (currentPin.length != AppLockService.PIN_LENGTH || verifying) return
+        scope.launch {
+            verifying = true
+            error = null
+            try {
+                if (appLockService.verifyPin(currentPin)) {
                     onUnlocked()
                 } else {
                     error = "Incorrect PIN"
-                    shakeError = !shakeError
                     pin = ""
                 }
+            } catch (e: Exception) {
+                error = "Could not verify PIN. Please try again."
+                pin = ""
+            } finally {
+                verifying = false
             }
         }
     }
@@ -63,7 +61,7 @@ fun AppLockScreen(onUnlocked: () -> Unit) {
                 .fillMaxSize()
                 .padding(VeilSpacing.xxxl),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+        verticalArrangement = Arrangement.Center,
     ) {
         VeilBrandMark()
         Spacer(modifier = Modifier.height(VeilSpacing.xxxl))
@@ -73,7 +71,7 @@ fun AppLockScreen(onUnlocked: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(VeilSpacing.sm))
         Text(
-            text = "Enter your PIN to continue",
+            text = "Enter your ${AppLockService.PIN_LENGTH}-digit PIN",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -81,20 +79,22 @@ fun AppLockScreen(onUnlocked: () -> Unit) {
         Spacer(modifier = Modifier.height(VeilSpacing.xxxl))
         VeilPinInput(
             pin = pin,
-            onPinChange = {
-                pin = it
+            onPinChange = { newPin ->
+                if (verifying) return@VeilPinInput
+                pin = newPin
                 error = null
+                if (newPin.length == AppLockService.PIN_LENGTH) {
+                    tryUnlock(newPin)
+                }
             },
-            length = 6,
+            length = AppLockService.PIN_LENGTH,
+            enabled = !verifying,
             modifier = Modifier.fillMaxWidth(),
         )
         error?.let {
             VeilErrorBanner(
                 message = it,
-                modifier =
-                    Modifier
-                        .padding(top = VeilSpacing.lg)
-                        .alpha(errorAlpha),
+                modifier = Modifier.padding(top = VeilSpacing.lg),
             )
         }
     }
