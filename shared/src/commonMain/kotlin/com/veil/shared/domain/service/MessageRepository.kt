@@ -98,35 +98,39 @@ class MessageRepository(
         val decoded = mutableListOf<ChatMessage>()
 
         for (envelope in pending) {
-            val plaintext =
-                cryptoEngine.decrypt(
-                    senderIdentityId = envelope.senderIdentityId,
-                    senderDeviceIdNumeric = SIGNAL_DEVICE_ID,
-                    payload = EncryptedPayload(envelope.ciphertext, envelope.messageType),
+            try {
+                val plaintext =
+                    cryptoEngine.decrypt(
+                        senderIdentityId = envelope.senderIdentityId,
+                        senderDeviceIdNumeric = SIGNAL_DEVICE_ID,
+                        payload = EncryptedPayload(envelope.ciphertext, envelope.messageType),
+                    )
+                val body = plaintext.decodeToString()
+                decoded.add(
+                    ChatMessage(
+                        id = envelope.id,
+                        conversationId = envelope.conversationId,
+                        senderId = envelope.senderIdentityId,
+                        body = body,
+                        sentAtEpochMs = envelope.sentAtEpochMs,
+                        status = MessageStatus.DELIVERED,
+                        isOutgoing = false,
+                    ),
                 )
-            val body = plaintext.decodeToString()
-            decoded.add(
-                ChatMessage(
-                    id = envelope.id,
-                    conversationId = envelope.conversationId,
-                    senderId = envelope.senderIdentityId,
-                    body = body,
-                    sentAtEpochMs = envelope.sentAtEpochMs,
-                    status = MessageStatus.DELIVERED,
-                    isOutgoing = false,
-                ),
-            )
-            messageStore.saveMessage(
-                Message(
-                    id = envelope.id,
-                    conversationId = envelope.conversationId,
-                    senderId = envelope.senderIdentityId,
-                    ciphertext = envelope.ciphertext,
-                    sentAtEpochMs = envelope.sentAtEpochMs,
-                    status = MessageStatus.DELIVERED,
-                ),
-            )
-            relayClient.acknowledgeMessage(envelope.id)
+                messageStore.saveMessage(
+                    Message(
+                        id = envelope.id,
+                        conversationId = envelope.conversationId,
+                        senderId = envelope.senderIdentityId,
+                        ciphertext = envelope.ciphertext,
+                        sentAtEpochMs = envelope.sentAtEpochMs,
+                        status = MessageStatus.DELIVERED,
+                    ),
+                )
+                relayClient.acknowledgeMessage(envelope.id)
+            } catch (_: Exception) {
+                // Skip messages that cannot be decrypted.
+            }
         }
         return Result.success(decoded)
     }
@@ -154,11 +158,15 @@ class MessageRepository(
                             ),
                     ).decodeToString()
                 } catch (_: Exception) {
-                    cryptoEngine.decrypt(
-                        senderIdentityId = msg.senderId,
-                        senderDeviceIdNumeric = SIGNAL_DEVICE_ID,
-                        payload = EncryptedPayload(msg.ciphertext, CIPHERTEXT_PREKEY_TYPE),
-                    ).decodeToString()
+                    try {
+                        cryptoEngine.decrypt(
+                            senderIdentityId = msg.senderId,
+                            senderDeviceIdNumeric = SIGNAL_DEVICE_ID,
+                            payload = EncryptedPayload(msg.ciphertext, CIPHERTEXT_PREKEY_TYPE),
+                        ).decodeToString()
+                    } catch (_: Exception) {
+                        return null
+                    }
                 }
             }
         return ChatMessage(
@@ -180,6 +188,10 @@ class MessageRepository(
                 establishedSessions.add(key)
             }
         }
+    }
+
+    suspend fun clearSessionCache() {
+        sessionMutex.withLock { establishedSessions.clear() }
     }
 
     private suspend fun ensureConversation(

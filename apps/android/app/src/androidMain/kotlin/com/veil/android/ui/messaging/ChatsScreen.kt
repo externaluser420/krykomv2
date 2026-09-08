@@ -64,30 +64,50 @@ fun ChatsScreen(
     fun loadConversations(showLoading: Boolean = false) {
         scope.launch {
             if (showLoading) isLoading = true
-            val contacts = contactService.listContacts()
-            val previews =
-                contacts.map { contact ->
-                    val messages = messageRepository.loadChatMessages(contact)
-                    val last = messages.lastOrNull()
-                    ConversationPreview(
-                        contact = contact,
-                        lastMessage = last?.body,
-                        lastMessageTime = last?.sentAtEpochMs,
-                        unreadCount = 0,
-                    )
-                }.sortedByDescending { it.lastMessageTime ?: 0L }
-            conversations = previews
-            isLoading = false
-            isRefreshing = false
+            try {
+                val contacts = contactService.listContacts()
+                val previews =
+                    contacts.map { contact ->
+                        val messages = messageRepository.loadChatMessages(contact)
+                        val last = messages.lastOrNull()
+                        ConversationPreview(
+                            contact = contact,
+                            lastMessage = last?.body,
+                            lastMessageTime = last?.sentAtEpochMs,
+                            unreadCount = 0,
+                        )
+                    }.sortedByDescending { it.lastMessageTime ?: 0L }
+                conversations = previews
+            } catch (_: Exception) {
+                syncStatus = "Couldn't load conversations"
+            } finally {
+                isLoading = false
+                isRefreshing = false
+            }
+        }
+    }
+
+    fun syncMessages(onDone: () -> Unit = {}) {
+        scope.launch {
+            messageRepository.syncIncoming()
+                .onSuccess { incoming ->
+                    syncStatus =
+                        if (incoming.isEmpty()) {
+                            "Up to date"
+                        } else {
+                            "${incoming.size} new message${if (incoming.size > 1) "s" else ""}"
+                        }
+                    loadConversations()
+                }
+                .onFailure {
+                    syncStatus = "Sync failed"
+                }
+            onDone()
         }
     }
 
     LaunchedEffect(Unit) {
-        messageRepository.syncIncoming().onSuccess { incoming ->
-            if (incoming.isNotEmpty()) {
-                syncStatus = "${incoming.size} new message${if (incoming.size > 1) "s" else ""}"
-            }
-        }
+        syncMessages()
         loadConversations(showLoading = true)
     }
 
@@ -117,18 +137,8 @@ fun ChatsScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            scope.launch {
-                                isRefreshing = true
-                                messageRepository.syncIncoming().onSuccess { incoming ->
-                                    syncStatus =
-                                        if (incoming.isEmpty()) {
-                                            "Up to date"
-                                        } else {
-                                            "${incoming.size} new message${if (incoming.size > 1) "s" else ""}"
-                                        }
-                                }
-                                loadConversations()
-                            }
+                            isRefreshing = true
+                            syncMessages { isRefreshing = false }
                         },
                     ) {
                         Icon(Icons.Default.Sync, contentDescription = "Sync messages")
@@ -202,11 +212,8 @@ fun ChatsScreen(
                     PullToRefreshBox(
                         isRefreshing = isRefreshing,
                         onRefresh = {
-                            scope.launch {
-                                isRefreshing = true
-                                messageRepository.syncIncoming()
-                                loadConversations()
-                            }
+                            isRefreshing = true
+                            syncMessages { isRefreshing = false }
                         },
                         modifier = Modifier.fillMaxSize(),
                     ) {

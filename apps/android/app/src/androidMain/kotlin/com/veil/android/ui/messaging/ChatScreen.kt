@@ -34,6 +34,7 @@ import com.veil.android.ui.components.VeilAvatar
 import com.veil.android.ui.components.VeilChatComposer
 import com.veil.android.ui.components.VeilEmptyState
 import com.veil.android.ui.components.VeilErrorBanner
+import com.veil.android.ui.components.VeilLoadingScreen
 import com.veil.android.ui.components.VeilMessageBubble
 import com.veil.android.ui.theme.VeilAccent
 import com.veil.android.ui.theme.VeilSpacing
@@ -59,14 +60,39 @@ fun ChatScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var sending by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
+    var lastFailedMessage by remember { mutableStateOf<String?>(null) }
 
     val displayName = contact.displayName ?: contact.identityId.value.take(8)
 
     fun reloadMessages() {
         scope.launch {
-            messageRepository.syncIncoming()
-            messages = messageRepository.loadChatMessages(contact)
-            isLoading = false
+            try {
+                messageRepository.syncIncoming()
+                messages = messageRepository.loadChatMessages(contact)
+            } catch (_: Exception) {
+                error = "Couldn't load messages."
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    fun sendMessage(text: String) {
+        scope.launch {
+            sending = true
+            error = null
+            messageRepository
+                .sendTextMessage(contact, text)
+                .onSuccess {
+                    draft = ""
+                    lastFailedMessage = null
+                    messages = messageRepository.loadChatMessages(contact)
+                }
+                .onFailure {
+                    lastFailedMessage = text
+                    error = "Message couldn't be sent. Please try again."
+                }
+            sending = false
         }
     }
 
@@ -123,7 +149,9 @@ fun ChatScreen(
                 error?.let {
                     VeilErrorBanner(
                         message = it,
-                        onRetry = { error = null },
+                        onRetry = {
+                            lastFailedMessage?.let { failed -> sendMessage(failed) } ?: reloadMessages()
+                        },
                     )
                 }
                 VeilChatComposer(
@@ -133,20 +161,7 @@ fun ChatScreen(
                     onSend = {
                         val text = draft.trim()
                         if (text.isEmpty() || sending) return@VeilChatComposer
-                        scope.launch {
-                            sending = true
-                            error = null
-                            messageRepository
-                                .sendTextMessage(contact, text)
-                                .onSuccess {
-                                    draft = ""
-                                    messages = messageRepository.loadChatMessages(contact)
-                                }
-                                .onFailure { err ->
-                                    error = "Message couldn't be sent. Please try again."
-                                }
-                            sending = false
-                        }
+                        sendMessage(text)
                     },
                 )
             }
@@ -160,7 +175,10 @@ fun ChatScreen(
         ) {
             when {
                 isLoading -> {
-                    // Subtle loading — show empty chat area
+                    VeilLoadingScreen(
+                        message = "Loading messages…",
+                        modifier = Modifier.align(Alignment.Center),
+                    )
                 }
                 messages.isEmpty() -> {
                     VeilEmptyState(

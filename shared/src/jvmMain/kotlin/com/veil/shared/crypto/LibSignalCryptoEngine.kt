@@ -57,4 +57,8 @@ class LibSignalCryptoEngine(
         withContext(Dispatchers.Default) {
             IdentityKey(remote.identityKey).fingerprint
         }
+
+    override suspend fun resetLocalCryptoState() {
+        storeHolder.reset()
+    }
 }

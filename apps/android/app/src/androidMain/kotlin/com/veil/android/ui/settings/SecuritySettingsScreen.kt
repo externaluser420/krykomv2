@@ -23,10 +23,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.veil.android.ui.components.VeilPinInput
 import com.veil.android.ui.components.VeilPrimaryButton
 import com.veil.android.ui.components.VeilSettingsRow
 import com.veil.android.ui.components.VeilSettingsSectionHeader
-import com.veil.android.ui.components.VeilTextField
 import com.veil.android.ui.theme.VeilSpacing
 import com.veil.shared.domain.service.AppLockService
 import kotlinx.coroutines.launch
@@ -44,6 +44,8 @@ fun SecuritySettingsScreen(onBack: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
+
+    fun pinValid(value: String) = value.length == AppLockService.PIN_LENGTH && value.all { it.isDigit() }
 
     Scaffold(
         topBar = {
@@ -71,30 +73,44 @@ fun SecuritySettingsScreen(onBack: () -> Unit) {
                     .padding(VeilSpacing.screenHorizontal),
         ) {
             VeilSettingsSectionHeader(title = "Change PIN")
-            VeilTextField(
-                value = currentPin,
-                onValueChange = { if (it.length <= 8 && it.all { c -> c.isDigit() }) currentPin = it },
-                label = "Current PIN",
-                isPassword = true,
+            Text(
+                text = "Enter your current PIN, then choose a new ${AppLockService.PIN_LENGTH}-digit PIN.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = VeilSpacing.lg),
             )
-            VeilTextField(
-                value = newPin,
-                onValueChange = { if (it.length <= 8 && it.all { c -> c.isDigit() }) newPin = it },
-                label = "New PIN",
-                isPassword = true,
-                modifier = Modifier.padding(top = VeilSpacing.md),
+            VeilPinInput(
+                pin = currentPin,
+                onPinChange = { if (it.length <= AppLockService.PIN_LENGTH) currentPin = it },
+                length = AppLockService.PIN_LENGTH,
+                enabled = !loading,
             )
-            VeilTextField(
-                value = confirmPin,
-                onValueChange = { if (it.length <= 8 && it.all { c -> c.isDigit() }) confirmPin = it },
-                label = "Confirm new PIN",
-                isPassword = true,
-                modifier = Modifier.padding(top = VeilSpacing.md),
+            Text(
+                text = "New PIN",
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(top = VeilSpacing.lg, bottom = VeilSpacing.sm),
+            )
+            VeilPinInput(
+                pin = newPin,
+                onPinChange = { if (it.length <= AppLockService.PIN_LENGTH) newPin = it },
+                length = AppLockService.PIN_LENGTH,
+                enabled = !loading,
+            )
+            Text(
+                text = "Confirm new PIN",
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(top = VeilSpacing.lg, bottom = VeilSpacing.sm),
+            )
+            VeilPinInput(
+                pin = confirmPin,
+                onPinChange = { if (it.length <= AppLockService.PIN_LENGTH) confirmPin = it },
+                length = AppLockService.PIN_LENGTH,
+                enabled = !loading,
             )
             VeilPrimaryButton(
                 text = "Update PIN",
                 loading = loading,
-                enabled = currentPin.length >= AppLockService.PIN_MIN && newPin.length >= AppLockService.PIN_MIN,
+                enabled = pinValid(currentPin) && pinValid(newPin) && pinValid(confirmPin),
                 onClick = {
                     scope.launch {
                         loading = true
@@ -111,8 +127,13 @@ fun SecuritySettingsScreen(onBack: () -> Unit) {
                             return@launch
                         }
                         appLockService.setPin(newPin)
-                            .onSuccess { message = "PIN updated successfully" }
-                            .onFailure { error = it.message ?: "Couldn't update PIN" }
+                            .onSuccess {
+                                message = "PIN updated successfully"
+                                currentPin = ""
+                                newPin = ""
+                                confirmPin = ""
+                            }
+                            .onFailure { err -> error = err.message ?: "Couldn't update PIN" }
                         loading = false
                     }
                 },
@@ -144,7 +165,7 @@ fun SecuritySettingsScreen(onBack: () -> Unit) {
             VeilSettingsSectionHeader(title = "App lock")
             VeilSettingsRow(
                 title = "PIN protection",
-                subtitle = "Veil locks automatically when you leave the app",
+                subtitle = "Required on app launch and when returning from background",
             )
         }
     }

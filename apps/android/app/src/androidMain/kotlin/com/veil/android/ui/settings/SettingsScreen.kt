@@ -30,12 +30,11 @@ import androidx.compose.ui.text.style.TextAlign
 import com.veil.android.ui.components.VeilAvatar
 import com.veil.android.ui.components.VeilSettingsRow
 import com.veil.android.ui.components.VeilSettingsSectionHeader
-import com.veil.android.ui.components.VeilSettingsSwitch
 import com.veil.android.ui.theme.LocalVeilThemeMode
 import com.veil.android.ui.theme.LocalVeilThemeModeController
 import com.veil.android.ui.theme.VeilSpacing
 import com.veil.android.ui.theme.VeilThemeMode
-import com.veil.shared.domain.service.AppLockService
+import com.veil.shared.domain.service.AccountService
 import com.veil.shared.domain.service.IdentityService
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -49,8 +48,8 @@ fun SettingsScreen(
     onAccountDeleted: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val accountService: AccountService = koinInject()
     val identityService: IdentityService = koinInject()
-    val appLockService: AppLockService = koinInject()
     val scope = rememberCoroutineScope()
     val themeMode = LocalVeilThemeMode.current
     val setThemeMode = LocalVeilThemeModeController.current
@@ -58,14 +57,14 @@ fun SettingsScreen(
     var identityId by remember { mutableStateOf("") }
     var deviceId by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var biometricEnabled by remember { mutableStateOf(false) }
+    var deleteError by remember { mutableStateOf<String?>(null) }
+    var deleting by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         identityService.getIdentityState().onSuccess { state ->
             identityId = state.identityId.value
             deviceId = state.deviceId.value
         }
-        biometricEnabled = appLockService.isBiometricEnabled()
     }
 
     if (showDeleteDialog) {
@@ -73,19 +72,37 @@ fun SettingsScreen(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Delete account?") },
             text = {
-                Text(
-                    "This will permanently delete your identity and all local data from this device. This cannot be undone.",
-                )
+                Column {
+                    Text(
+                        "This will permanently delete your identity and all local data from this device. This cannot be undone.",
+                    )
+                    deleteError?.let {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = VeilSpacing.sm),
+                        )
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         scope.launch {
-                            identityService.deleteIdentity()
-                            showDeleteDialog = false
-                            onAccountDeleted()
+                            deleting = true
+                            deleteError = null
+                            accountService.deleteAccount()
+                                .onSuccess {
+                                    showDeleteDialog = false
+                                    onAccountDeleted()
+                                }
+                                .onFailure {
+                                    deleteError = "Could not delete account. Please try again."
+                                    deleting = false
+                                }
                         }
                     },
+                    enabled = !deleting,
                 ) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
@@ -170,16 +187,9 @@ fun SettingsScreen(
             modifier = Modifier.padding(start = VeilSpacing.screenHorizontal),
             color = MaterialTheme.colorScheme.outlineVariant,
         )
-        VeilSettingsSwitch(
+        VeilSettingsRow(
             title = "Biometric unlock",
-            subtitle = "Use fingerprint or face to unlock",
-            checked = biometricEnabled,
-            onCheckedChange = { enabled ->
-                scope.launch {
-                    appLockService.setBiometricEnabled(enabled)
-                    biometricEnabled = enabled
-                }
-            },
+            subtitle = "Coming soon",
         )
 
         Spacer(modifier = Modifier.height(VeilSpacing.lg))

@@ -66,11 +66,9 @@ private val LightColorScheme =
     )
 
 @Composable
-fun VeilTheme(
-    themeMode: VeilThemeMode = VeilThemeMode.DARK,
-    content: @Composable () -> Unit,
-) {
-    var currentMode by remember { mutableStateOf(themeMode) }
+fun VeilTheme(content: @Composable () -> Unit) {
+    val themePrefs = rememberVeilThemePreferences()
+    var currentMode by remember { mutableStateOf(themePrefs.load()) }
     val isDark =
         when (currentMode) {
             VeilThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -82,7 +80,10 @@ fun VeilTheme(
 
     CompositionLocalProvider(
         LocalVeilThemeMode provides currentMode,
-        LocalVeilThemeModeController provides { currentMode = it },
+        LocalVeilThemeModeController provides { mode ->
+            currentMode = mode
+            themePrefs.save(mode)
+        },
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

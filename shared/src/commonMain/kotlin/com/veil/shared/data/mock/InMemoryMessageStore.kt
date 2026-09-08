@@ -58,4 +58,14 @@ class InMemoryMessageStore : MessageStore {
 
     override suspend fun getBlockedIdentities(): List<IdentityId> =
         mutex.withLock { blocked.toList() }
+
+    override suspend fun clearAllData(): Result<Unit> {
+        mutex.withLock {
+            messages.clear()
+            conversations.clear()
+            contacts.clear()
+            blocked.clear()
+        }
+        return Result.success(Unit)
+    }
 }

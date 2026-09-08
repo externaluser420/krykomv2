@@ -8,6 +8,7 @@ import com.veil.shared.domain.port.MessageStore
 import com.veil.shared.domain.port.PushService
 import com.veil.shared.domain.port.RelayClient
 import com.veil.shared.domain.port.TurnService
+import com.veil.shared.domain.service.AccountService
 import com.veil.shared.domain.service.AppLockService
 import com.veil.shared.domain.service.ContactService
 import com.veil.shared.domain.service.IdentityService
@@ -44,6 +45,7 @@ fun veilIdentityModule(storageFactory: PlatformSecureStorageFactory): Module =
         single<MessageStore> { storageFactory.createMessageStore() }
         single { IdentityService(get(), get()) }
         single { AppLockService(get()) }
+        single { AccountService(get(), get(), get(), get(), get()) }
     }
 
 /** E2EE messaging (Phase 4). */

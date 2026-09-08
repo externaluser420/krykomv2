@@ -74,6 +74,9 @@ interface CryptoMessagingEngine {
     ): ByteArray
 
     suspend fun fingerprint(remote: PublicKeyBundle): String
+
+    /** Clears in-memory crypto sessions after account deletion. */
+    suspend fun resetLocalCryptoState()
 }
 
 /** Push gateway abstraction — NoOp in dev; APNs/FCM wired later (ADR-003). */
@@ -122,6 +125,9 @@ interface MessageStore {
     suspend fun getContacts(): List<Contact>
 
     suspend fun getBlockedIdentities(): List<IdentityId>
+
+    /** Removes all local messages, contacts, and conversations. */
+    suspend fun clearAllData(): Result<Unit>
 }
 
 /** Secure identity and device key storage — Secure Enclave / Keystore (Phase 3). */

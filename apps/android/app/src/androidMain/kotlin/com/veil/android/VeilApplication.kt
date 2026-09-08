@@ -12,6 +12,7 @@ import org.koin.core.context.startKoin
 class VeilApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        System.loadLibrary("sqlcipher")
         val storageFactory = PlatformSecureStorageFactory(applicationContext)
         startKoin {
             androidContext(this@VeilApplication)

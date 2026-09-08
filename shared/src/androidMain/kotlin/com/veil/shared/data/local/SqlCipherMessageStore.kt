@@ -82,6 +82,20 @@ class SqlCipherMessageStore(
         withContext(Dispatchers.IO) {
             db().blockedDao().getAll().map { IdentityId(it) }
         }
+
+    override suspend fun clearAllData(): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            dbMutex.withLock {
+                try {
+                    database?.close()
+                    database = null
+                    context.applicationContext.deleteDatabase("veil_encrypted.db")
+                    Result.success(Unit)
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+            }
+        }
 }
 
 private fun Message.toEntity() =

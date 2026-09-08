@@ -19,12 +19,17 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.veil.android.ui.components.VeilLoadingScreen
 import com.veil.android.ui.lock.AppLockScreen
 import com.veil.android.ui.messaging.AddContactScreen
@@ -40,6 +45,7 @@ import com.veil.android.ui.theme.VeilTheme
 import com.veil.shared.domain.model.Contact
 import com.veil.shared.domain.service.AppLockService
 import com.veil.shared.domain.service.IdentityService
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 class MainActivity : ComponentActivity() {
@@ -75,11 +81,11 @@ private enum class MainTab {
 private sealed class HomeDestination {
     data class Tab(val tab: MainTab) : HomeDestination()
 
-    data object AddContact : HomeDestination()
+    data class AddContact(val returnTab: MainTab = MainTab.Chats) : HomeDestination()
 
-    data class Chat(val contact: Contact) : HomeDestination()
+    data class Chat(val contact: Contact, val returnTab: MainTab = MainTab.Chats) : HomeDestination()
 
-    data class ContactProfile(val contact: Contact, val returnTo: HomeDestination = HomeDestination.Tab(MainTab.Contacts)) : HomeDestination()
+    data class ContactProfile(val contact: Contact, val returnTo: HomeDestination) : HomeDestination()
 
     data object SecuritySettings : HomeDestination()
 
@@ -90,7 +96,10 @@ private sealed class HomeDestination {
 fun VeilRoot() {
     val identityService: IdentityService = koinInject()
     val appLockService: AppLockService = koinInject()
+    val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
     var screen by remember { mutableStateOf(AppScreen.Loading) }
+    var lockOnResume by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         screen =
@@ -99,6 +108,30 @@ fun VeilRoot() {
                 appLockService.isEnabled() -> AppScreen.Lock
                 else -> AppScreen.Home
             }
+    }
+
+    DisposableEffect(lifecycleOwner, screen) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_STOP -> {
+                        if (screen == AppScreen.Home) lockOnResume = true
+                    }
+                    Lifecycle.Event.ON_START -> {
+                        if (lockOnResume && screen == AppScreen.Home) {
+                            scope.launch {
+                                if (appLockService.isEnabled()) {
+                                    screen = AppScreen.Lock
+                                }
+                                lockOnResume = false
+                            }
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     when (screen) {
@@ -144,15 +177,21 @@ private fun VeilHomeNav(onAccountDeleted: () -> Unit) {
                     MainTab.Chats ->
                         ChatsScreen(
                             modifier = Modifier.padding(padding),
-                            onAddContact = { destination = HomeDestination.AddContact },
-                            onOpenChat = { contact -> destination = HomeDestination.Chat(contact) },
+                            onAddContact = { destination = HomeDestination.AddContact(MainTab.Chats) },
+                            onOpenChat = { contact ->
+                                destination = HomeDestination.Chat(contact, MainTab.Chats)
+                            },
                         )
                     MainTab.Contacts ->
                         ContactsScreen(
                             modifier = Modifier.padding(padding),
-                            onAddContact = { destination = HomeDestination.AddContact },
+                            onAddContact = { destination = HomeDestination.AddContact(MainTab.Contacts) },
                             onOpenContact = { contact ->
-                                destination = HomeDestination.ContactProfile(contact)
+                                destination =
+                                    HomeDestination.ContactProfile(
+                                        contact = contact,
+                                        returnTo = HomeDestination.Tab(MainTab.Contacts),
+                                    )
                             },
                         )
                     MainTab.Settings ->
@@ -165,24 +204,39 @@ private fun VeilHomeNav(onAccountDeleted: () -> Unit) {
                 }
             }
         }
-        HomeDestination.AddContact ->
+        is HomeDestination.AddContact ->
             AddContactScreen(
-                onBack = { destination = HomeDestination.Tab(MainTab.Chats) },
-                onAdded = { destination = HomeDestination.Tab(MainTab.Chats) },
+                onBack = { destination = HomeDestination.Tab(current.returnTab) },
+                onAdded = { destination = HomeDestination.Tab(current.returnTab) },
             )
         is HomeDestination.Chat ->
             ChatScreen(
                 contact = current.contact,
-                onBack = { destination = HomeDestination.Tab(MainTab.Chats) },
+                onBack = { destination = HomeDestination.Tab(current.returnTab) },
                 onOpenProfile = { contact ->
-                    destination = HomeDestination.ContactProfile(contact, HomeDestination.Chat(current.contact))
+                    destination =
+                        HomeDestination.ContactProfile(
+                            contact = contact,
+                            returnTo = current,
+                        )
                 },
             )
         is HomeDestination.ContactProfile ->
             ContactProfileScreen(
                 contact = current.contact,
                 onBack = { destination = current.returnTo },
-                onOpenChat = { contact -> destination = HomeDestination.Chat(contact) },
+                onOpenChat = { contact ->
+                    destination =
+                        HomeDestination.Chat(
+                            contact = contact,
+                            returnTab =
+                                when (val back = current.returnTo) {
+                                    is HomeDestination.Chat -> back.returnTab
+                                    is HomeDestination.Tab -> back.tab
+                                    else -> MainTab.Contacts
+                                },
+                        )
+                },
             )
         HomeDestination.SecuritySettings ->
             SecuritySettingsScreen(
