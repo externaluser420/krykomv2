@@ -96,21 +96,42 @@ The emulator reaches your computer's localhost relay at `http://10.0.2.2:8080` (
 ### Keep Desktop folder in sync with GitHub
 
 If you work in the cloud (Cursor Agent) but also have a local copy on Desktop
-(e.g. `~/Desktop/krykom2`), install auto-sync **once on your computer**:
+(e.g. `~/Desktop/krykom2`), install auto-sync **once on your computer**.
 
-```bash
-cd ~/Desktop/krykom2          # or wherever your local clone lives
-bash scripts/install-desktop-sync.sh
+#### Windows 11 (PowerShell)
+
+```powershell
+cd $env:USERPROFILE\Desktop\krykom2
+powershell -ExecutionPolicy Bypass -File scripts\install-desktop-sync.ps1
 ```
 
-This will:
-1. Clone/update `~/Desktop/krykom2` from GitHub if needed
-2. Pull the latest branch every 2 minutes automatically
+First-time setup (if the folder does not exist yet):
 
-Manual sync anytime:
+```powershell
+cd $env:USERPROFILE\Desktop
+git clone https://github.com/externaluser420/krykomv2.git krykom2
+cd krykom2
+git checkout cursor/premium-gui-redesign-e58c
+powershell -ExecutionPolicy Bypass -File scripts\install-desktop-sync.ps1
+```
+
+Manual sync:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\sync-desktop-repo.ps1 -Mode once
+```
+
+Remove auto-sync:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\uninstall-desktop-sync.ps1
+```
+
+#### macOS / Linux (bash)
 
 ```bash
-bash scripts/sync-desktop-repo.sh once
+cd ~/Desktop/krykom2
+bash scripts/install-desktop-sync.sh
 ```
 
 Custom path or branch:
@@ -119,14 +140,8 @@ Custom path or branch:
 VEIL_DESKTOP_REPO=~/Desktop/krykomv2 VEIL_SYNC_BRANCH=main bash scripts/install-desktop-sync.sh
 ```
 
-Remove auto-sync:
-
-```bash
-bash scripts/uninstall-desktop-sync.sh
-```
-
 **Note:** GitHub pushes from the cloud agent do not push to your Desktop directly —
-your Mac/PC must pull. Auto-sync handles that in the background.
+your PC must pull. Auto-sync handles that in the background (every 2 minutes).
 
 ### Docker (optional)
 
