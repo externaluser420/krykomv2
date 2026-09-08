@@ -1,0 +1,16 @@
+{
+  "name": "Veil Messenger",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "relay",
+      "command": "cargo run -p veil-relay"
+    }
+  ],
+  "ports": [
+    {
+      "name": "relay",
+      "port": 8080
+    }
+  ]
+}
