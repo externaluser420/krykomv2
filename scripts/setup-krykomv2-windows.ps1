@@ -2,10 +2,10 @@
 # Veil / Krykom — Windows 11 one-shot setup
 # Clones (if needed) + syncs + installs auto-sync every 2 minutes.
 #
-# Paste this entire file into PowerShell on your PC (g.ghost).
+# Paste this entire file into PowerShell on your PC (g g.ghost).
 # =============================================================================
 
-$DesktopRepo = "C:\Users\g.ghost\Desktop\krykomv2"
+$DesktopRepo = "C:\Users\g g.ghost\Desktop\krykomv2"
 $Branch      = "cursor/premium-gui-redesign-e58c"
 $RepoUrl     = "https://github.com/externaluser420/krykomv2.git"
 $TaskName    = "VeilDesktopSync"
