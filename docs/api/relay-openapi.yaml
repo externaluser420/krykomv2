@@ -1,0 +1,229 @@
+openapi: 3.1.0
+info:
+  title: Veil Relay API
+  version: 0.1.0
+  description: |
+    Stateless E2EE message relay. Server never decrypts message content.
+    Contract for client/server integration — mock and production implementations
+    must conform to this spec (ADR-003).
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+
+  /v1/devices/{device_id}:
+    put:
+      summary: Register device (single device per identity — ADR-004)
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identity_id]
+              properties:
+                identity_id:
+                  type: string
+                push_token_hash:
+                  type: string
+      responses:
+        "200":
+          description: Registered
+    delete:
+      summary: Unregister device
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Unregistered
+
+  /v1/accounts/{identity_id}/devices/{device_id}/keys:
+    put:
+      summary: Upload public key bundle
+      parameters:
+        - name: identity_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KeyBundle"
+      responses:
+        "200":
+          description: Stored
+    get:
+      summary: Fetch public key bundle
+      parameters:
+        - name: identity_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Key bundle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeyBundle"
+        "404":
+          description: Not found
+
+  /v1/messages:
+    post:
+      summary: Enqueue encrypted message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessage"
+      responses:
+        "200":
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+
+  /v1/messages/pending/{device_id}:
+    get:
+      summary: Fetch pending messages for device
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pending ciphertext messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MessageRecord"
+
+  /v1/messages/{message_id}/ack:
+    post:
+      summary: Acknowledge delivery — removes from queue
+      parameters:
+        - name: message_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_id]
+              properties:
+                device_id:
+                  type: string
+      responses:
+        "200":
+          description: Acknowledged
+        "404":
+          description: Message not found
+
+components:
+  schemas:
+    KeyBundle:
+      type: object
+      required:
+        - identity_id
+        - device_id
+        - identity_key
+        - signed_pre_key
+        - signed_pre_key_signature
+      properties:
+        identity_id:
+          type: string
+        device_id:
+          type: string
+        identity_key:
+          type: string
+          description: Base64-encoded public key
+        signed_pre_key:
+          type: string
+        signed_pre_key_signature:
+          type: string
+        one_time_pre_key:
+          type: string
+
+    SendMessage:
+      type: object
+      required:
+        - recipient_device_id
+        - sender_identity_id
+        - conversation_id
+        - ciphertext_b64
+        - sent_at_epoch_ms
+      properties:
+        recipient_device_id:
+          type: string
+        sender_identity_id:
+          type: string
+        conversation_id:
+          type: string
+        ciphertext_b64:
+          type: string
+        sent_at_epoch_ms:
+          type: integer
+          format: int64
+
+    MessageRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        recipient_device_id:
+          type: string
+        sender_identity_id:
+          type: string
+        conversation_id:
+          type: string
+        ciphertext_b64:
+          type: string
+        sent_at_epoch_ms:
+          type: integer
+          format: int64
