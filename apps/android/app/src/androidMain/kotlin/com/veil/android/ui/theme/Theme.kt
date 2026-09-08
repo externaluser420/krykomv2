@@ -1,26 +1,104 @@
 package com.veil.android.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 
-private val DarkColors =
+enum class VeilThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK,
+}
+
+val LocalVeilThemeMode = compositionLocalOf { VeilThemeMode.SYSTEM }
+val LocalVeilThemeModeController =
+    compositionLocalOf<(VeilThemeMode) -> Unit> { {} }
+
+private val DarkColorScheme =
     darkColorScheme(
-        primary = androidx.compose.ui.graphics.Color(0xFF6B8AFE),
-        secondary = androidx.compose.ui.graphics.Color(0xFF9AA8C7),
+        primary = VeilPrimary,
+        onPrimary = VeilOnPrimary,
+        primaryContainer = VeilPrimaryContainer,
+        onPrimaryContainer = VeilDarkTextPrimary,
+        secondary = VeilSecondary,
+        onSecondary = VeilDarkTextPrimary,
+        tertiary = VeilAccent,
+        background = VeilDarkBackground,
+        onBackground = VeilDarkTextPrimary,
+        surface = VeilDarkSurface,
+        onSurface = VeilDarkTextPrimary,
+        surfaceVariant = VeilDarkSurfaceVariant,
+        onSurfaceVariant = VeilDarkTextSecondary,
+        outline = VeilDarkBorder,
+        outlineVariant = VeilDarkDivider,
+        error = VeilError,
+        onError = VeilOnPrimary,
     )
 
-private val LightColors =
+private val LightColorScheme =
     lightColorScheme(
-        primary = androidx.compose.ui.graphics.Color(0xFF3D5AFE),
-        secondary = androidx.compose.ui.graphics.Color(0xFF5C6BC0),
+        primary = VeilPrimary,
+        onPrimary = VeilOnPrimary,
+        primaryContainer = Color(0xFFD6E4FF),
+        onPrimaryContainer = Color(0xFF0D2B5E),
+        secondary = VeilSecondary,
+        onSecondary = VeilOnPrimary,
+        tertiary = VeilAccent,
+        background = VeilLightBackground,
+        onBackground = VeilLightTextPrimary,
+        surface = VeilLightSurface,
+        onSurface = VeilLightTextPrimary,
+        surfaceVariant = VeilLightSurfaceVariant,
+        onSurfaceVariant = VeilLightTextSecondary,
+        outline = VeilLightBorder,
+        outlineVariant = VeilLightDivider,
+        error = VeilError,
+        onError = VeilOnPrimary,
     )
 
 @Composable
-fun VeilTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = DarkColors,
-        content = content,
-    )
+fun VeilTheme(
+    themeMode: VeilThemeMode = VeilThemeMode.DARK,
+    content: @Composable () -> Unit,
+) {
+    var currentMode by remember { mutableStateOf(themeMode) }
+    val isDark =
+        when (currentMode) {
+            VeilThemeMode.SYSTEM -> isSystemInDarkTheme()
+            VeilThemeMode.LIGHT -> false
+            VeilThemeMode.DARK -> true
+        }
+
+    val colorScheme = if (isDark) DarkColorScheme else LightColorScheme
+
+    CompositionLocalProvider(
+        LocalVeilThemeMode provides currentMode,
+        LocalVeilThemeModeController provides { currentMode = it },
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = VeilTypography,
+            shapes = VeilShapes,
+            content = content,
+        )
+    }
+}
+
+@Composable
+fun isVeilDarkTheme(): Boolean {
+    val mode = LocalVeilThemeMode.current
+    return when (mode) {
+        VeilThemeMode.SYSTEM -> isSystemInDarkTheme()
+        VeilThemeMode.LIGHT -> false
+        VeilThemeMode.DARK -> true
+    }
 }

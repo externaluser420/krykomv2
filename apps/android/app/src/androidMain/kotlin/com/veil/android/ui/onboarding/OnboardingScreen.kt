@@ -1,19 +1,24 @@
 package com.veil.android.ui.onboarding
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -21,11 +26,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
+import com.veil.android.ui.components.VeilBrandMark
+import com.veil.android.ui.components.VeilErrorBanner
+import com.veil.android.ui.components.VeilPinInput
+import com.veil.android.ui.components.VeilPrimaryButton
+import com.veil.android.ui.theme.VeilAccent
+import com.veil.android.ui.theme.VeilSpacing
 import com.veil.shared.domain.service.AppLockService
 import com.veil.shared.domain.service.IdentityService
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+
+private enum class OnboardingStep {
+    Welcome,
+    CreateIdentity,
+    SetPin,
+}
 
 @Composable
 fun OnboardingScreen(onComplete: () -> Unit) {
@@ -33,93 +49,197 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     val appLockService: AppLockService = koinInject()
     val scope = rememberCoroutineScope()
 
+    var step by remember { mutableIntStateOf(OnboardingStep.Welcome.ordinal) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var pin by remember { mutableStateOf("") }
-    var identityCreated by remember { mutableStateOf(false) }
     var identityLabel by remember { mutableStateOf("") }
 
+    val currentStep = OnboardingStep.entries[step]
+
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(VeilSpacing.xxxl),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(text = "Welcome to Veil", style = MaterialTheme.typography.headlineMedium)
-        Text(
-            text = "Create a private identity on this device. No phone number required.",
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp),
-        )
+        VeilBrandMark()
+        Spacer(modifier = Modifier.height(VeilSpacing.xxxl))
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (!identityCreated) {
-            if (loading) {
-                CircularProgressIndicator()
-            } else {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            loading = true
-                            error = null
-                            identityService.createAndRegisterIdentity()
-                                .onSuccess { result ->
-                                    identityCreated = true
-                                    identityLabel = result.identityId.value.take(12) + "…"
-                                }
-                                .onFailure { error = it.message ?: "Failed to create identity" }
-                            loading = false
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Create identity")
+        AnimatedContent(
+            targetState = currentStep,
+            transitionSpec = {
+                (slideInHorizontally { it / 3 } + fadeIn()) togetherWith
+                    (slideOutHorizontally { -it / 3 } + fadeOut())
+            },
+            label = "onboardingStep",
+        ) { targetStep ->
+            when (targetStep) {
+                OnboardingStep.Welcome -> {
+                    WelcomeStep(
+                        onContinue = { step = OnboardingStep.CreateIdentity.ordinal },
+                    )
                 }
-            }
-        } else {
-            Text(
-                text = "Identity: $identityLabel",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
-                value = pin,
-                onValueChange = { if (it.length <= 8 && it.all { c -> c.isDigit() }) pin = it },
-                label = { Text("Set app PIN (4–8 digits)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = {
-                    scope.launch {
-                        loading = true
-                        error = null
-                        if (pin.length < AppLockService.PIN_MIN) {
-                            error = "PIN too short"
-                            loading = false
-                            return@launch
-                        }
-                        appLockService.setPin(pin)
-                            .onSuccess { onComplete() }
-                            .onFailure { error = it.message }
-                        loading = false
-                    }
-                },
-                enabled = pin.length >= AppLockService.PIN_MIN && !loading,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Continue")
+                OnboardingStep.CreateIdentity -> {
+                    CreateIdentityStep(
+                        loading = loading,
+                        identityLabel = identityLabel,
+                        onCreate = {
+                            scope.launch {
+                                loading = true
+                                error = null
+                                identityService.createAndRegisterIdentity()
+                                    .onSuccess { result ->
+                                        identityLabel = result.identityId.value.take(12) + "…"
+                                        step = OnboardingStep.SetPin.ordinal
+                                    }
+                                    .onFailure {
+                                        error = "Couldn't create identity. Please try again."
+                                    }
+                                loading = false
+                            }
+                        },
+                    )
+                }
+                OnboardingStep.SetPin -> {
+                    SetPinStep(
+                        pin = pin,
+                        onPinChange = { pin = it },
+                        loading = loading,
+                        onContinue = {
+                            scope.launch {
+                                loading = true
+                                error = null
+                                if (pin.length < AppLockService.PIN_MIN) {
+                                    error = "PIN must be at least ${AppLockService.PIN_MIN} digits"
+                                    loading = false
+                                    return@launch
+                                }
+                                appLockService.setPin(pin)
+                                    .onSuccess { onComplete() }
+                                    .onFailure { error = it.message ?: "Couldn't set PIN" }
+                                loading = false
+                            }
+                        },
+                    )
+                }
             }
         }
 
         error?.let {
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 12.dp),
+            VeilErrorBanner(
+                message = it,
+                modifier = Modifier.padding(top = VeilSpacing.lg),
             )
         }
+    }
+}
+
+@Composable
+private fun WelcomeStep(onContinue: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = "Welcome to Veil",
+            style = MaterialTheme.typography.displayMedium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(VeilSpacing.md))
+        Text(
+            text = "Private messaging without phone numbers. Your conversations stay between you.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(VeilSpacing.sm))
+        Text(
+            text = "End-to-end encrypted · No account required",
+            style = MaterialTheme.typography.labelMedium,
+            color = VeilAccent,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(VeilSpacing.huge))
+        VeilPrimaryButton(text = "Get started", onClick = onContinue)
+    }
+}
+
+@Composable
+private fun CreateIdentityStep(
+    loading: Boolean,
+    identityLabel: String,
+    onCreate: () -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = "Create your identity",
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(VeilSpacing.md))
+        Text(
+            text = "Veil creates a unique, pseudonymous identity on this device. No personal information needed.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        if (identityLabel.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(VeilSpacing.lg))
+            Text(
+                text = identityLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Spacer(modifier = Modifier.height(VeilSpacing.huge))
+        VeilPrimaryButton(
+            text = "Create identity",
+            loading = loading,
+            onClick = onCreate,
+        )
+    }
+}
+
+@Composable
+private fun SetPinStep(
+    pin: String,
+    onPinChange: (String) -> Unit,
+    loading: Boolean,
+    onContinue: () -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = "Secure your app",
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(VeilSpacing.md))
+        Text(
+            text = "Set a PIN to protect Veil when you're away from your device.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(VeilSpacing.xxxl))
+        VeilPinInput(
+            pin = pin,
+            onPinChange = onPinChange,
+            length = 6,
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(VeilSpacing.sm))
+        Text(
+            text = "${AppLockService.PIN_MIN}–${AppLockService.PIN_MAX} digits",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(VeilSpacing.huge))
+        VeilPrimaryButton(
+            text = "Continue",
+            loading = loading,
+            enabled = pin.length >= AppLockService.PIN_MIN,
+            onClick = onContinue,
+        )
     }
 }

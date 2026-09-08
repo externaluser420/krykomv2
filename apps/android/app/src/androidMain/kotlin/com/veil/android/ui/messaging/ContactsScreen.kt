@@ -1,26 +1,24 @@
 package com.veil.android.ui.messaging
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,13 +26,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import com.veil.android.ui.components.VeilContactRow
+import com.veil.android.ui.components.VeilEmptyState
+import com.veil.android.ui.components.VeilListDivider
+import com.veil.android.ui.components.VeilLoadingScreen
+import com.veil.android.ui.components.VeilSearchBar
+import com.veil.android.ui.theme.VeilSpacing
 import com.veil.shared.domain.model.Contact
 import com.veil.shared.domain.service.ContactService
-import com.veil.shared.domain.service.IdentityService
-import com.veil.shared.domain.service.MessageRepository
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -42,141 +43,129 @@ import org.koin.compose.koinInject
 @Composable
 fun ContactsScreen(
     onAddContact: () -> Unit,
-    onOpenChat: (Contact) -> Unit,
+    onOpenContact: (Contact) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val identityService: IdentityService = koinInject()
     val contactService: ContactService = koinInject()
-    val messageRepository: MessageRepository = koinInject()
     val scope = rememberCoroutineScope()
 
     var contacts by remember { mutableStateOf<List<Contact>>(emptyList()) }
-    var identityLabel by remember { mutableStateOf("") }
-    var deviceLabel by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(true) }
 
     fun refreshContacts() {
         scope.launch {
-            contactService.listContacts().let { contacts = it }
+            isLoading = true
+            contacts = contactService.listContacts()
+            isLoading = false
         }
     }
 
     LaunchedEffect(Unit) {
-        identityService.registerExistingIdentityWithRelay()
-            .onSuccess { state ->
-                identityLabel = state.identityId.value
-                deviceLabel = state.deviceId.value
-            }
         refreshContacts()
-        messageRepository.syncIncoming().onSuccess { incoming ->
-            if (incoming.isNotEmpty()) {
-                status = "${incoming.size} new message(s)"
-                refreshContacts()
-            }
-        }
     }
 
+    val filteredContacts =
+        if (searchQuery.isBlank()) {
+            contacts
+        } else {
+            contacts.filter { contact ->
+                val name = contact.displayName ?: contact.identityId.value
+                name.contains(searchQuery, ignoreCase = true) ||
+                    contact.identityId.value.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Veil") },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                messageRepository.syncIncoming().onSuccess { incoming ->
-                                    status =
-                                        if (incoming.isEmpty()) {
-                                            "No new messages"
-                                        } else {
-                                            "${incoming.size} new message(s)"
-                                        }
-                                    refreshContacts()
-                                }
-                            }
-                        },
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Sync")
-                    }
+                title = {
+                    Text(
+                        text = "Contacts",
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
                 },
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                    ),
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddContact) {
-                Icon(Icons.Default.Add, contentDescription = "Add contact")
+            FloatingActionButton(
+                onClick = onAddContact,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
+                Icon(Icons.Default.PersonAdd, contentDescription = "Add contact")
             }
         },
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text("Your identity", style = MaterialTheme.typography.labelMedium)
-                    Text(
-                        text = identityLabel,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = "Device: $deviceLabel",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 4.dp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+            VeilSearchBar(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                placeholder = "Search contacts",
+                onClear = { searchQuery = "" },
+                modifier = Modifier.padding(horizontal = VeilSpacing.screenHorizontal, vertical = VeilSpacing.sm),
+            )
+
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        VeilLoadingScreen(message = "Loading contacts…")
+                    }
+                }
+                filteredContacts.isEmpty() && searchQuery.isBlank() -> {
+                    VeilEmptyState(
+                        title = "No contacts yet",
+                        description = "Add someone by their identity to start messaging securely.",
+                        actionLabel = "Add contact",
+                        onAction = onAddContact,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
-            }
-
-            status?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-
-            if (contacts.isEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = "No contacts yet. Add someone by their identity and device ID.",
-                        style = MaterialTheme.typography.bodyMedium,
+                filteredContacts.isEmpty() -> {
+                    VeilEmptyState(
+                        title = "No results",
+                        description = "No contacts match \"$searchQuery\".",
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
-            } else {
-                LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                    items(contacts, key = { "${it.identityId.value}:${it.deviceId.value}" }) { contact ->
-                        ContactRow(contact = contact, onClick = { onOpenChat(contact) })
+                else -> {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        item {
+                            Text(
+                                text = "${filteredContacts.size} contact${if (filteredContacts.size != 1) "s" else ""}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier =
+                                    Modifier.padding(
+                                        horizontal = VeilSpacing.screenHorizontal,
+                                        vertical = VeilSpacing.sm,
+                                    ),
+                            )
+                        }
+                        items(
+                            items = filteredContacts,
+                            key = { "${it.identityId.value}:${it.deviceId.value}" },
+                        ) { contact ->
+                            VeilContactRow(
+                                contact = contact,
+                                onClick = { onOpenContact(contact) },
+                            )
+                            VeilListDivider()
+                        }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ContactRow(contact: Contact, onClick: () -> Unit) {
-    Card(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .clickable(onClick = onClick),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = contact.displayName ?: contact.identityId.value.take(8),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = contact.identityId.value.take(16) + "…",
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
     }
 }

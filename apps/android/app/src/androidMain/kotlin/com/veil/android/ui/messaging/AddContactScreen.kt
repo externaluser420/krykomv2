@@ -6,25 +6,32 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
+import com.veil.android.ui.components.VeilErrorBanner
+import com.veil.android.ui.components.VeilPrimaryButton
+import com.veil.android.ui.components.VeilTextField
+import com.veil.android.ui.theme.VeilSpacing
 import com.veil.shared.domain.model.DeviceId
 import com.veil.shared.domain.model.IdentityId
 import com.veil.shared.domain.service.ContactService
@@ -55,42 +62,62 @@ fun AddContactScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                    ),
             )
         },
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(VeilSpacing.screenHorizontal),
         ) {
             Text(
-                text = "Enter the contact's identity and device ID from their Veil app.",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "Add a contact",
+                style = MaterialTheme.typography.headlineMedium,
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
+            Text(
+                text = "Enter their identity and device ID from their Veil app to connect securely.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = VeilSpacing.sm),
+            )
+
+            Spacer(modifier = Modifier.height(VeilSpacing.xxxl))
+
+            VeilTextField(
                 value = identityId,
                 onValueChange = { identityId = it.trim() },
-                label = { Text("Identity ID") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                label = "Identity ID",
+                placeholder = "Paste identity ID",
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
+            Spacer(modifier = Modifier.height(VeilSpacing.lg))
+            VeilTextField(
                 value = deviceId,
                 onValueChange = { deviceId = it.trim() },
-                label = { Text("Device ID") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                label = "Device ID",
+                placeholder = "Paste device ID",
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
+            Spacer(modifier = Modifier.height(VeilSpacing.lg))
+            VeilTextField(
                 value = displayName,
                 onValueChange = { displayName = it },
-                label = { Text("Display name (optional)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                label = "Display name",
+                placeholder = "Optional",
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
+
+            Spacer(modifier = Modifier.height(VeilSpacing.xxxl))
+
+            VeilPrimaryButton(
+                text = "Add contact",
+                loading = loading,
+                enabled = identityId.isNotBlank() && deviceId.isNotBlank(),
                 onClick = {
                     scope.launch {
                         loading = true
@@ -107,22 +134,32 @@ fun AddContactScreen(
                                 displayName = displayName.ifBlank { null },
                             )
                             .onSuccess { onAdded() }
-                            .onFailure { error = it.message ?: "Could not add contact" }
+                            .onFailure {
+                                error = "Couldn't find this identity. Check the IDs and try again."
+                            }
                         loading = false
                     }
                 },
-                enabled = !loading,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Add contact")
-            }
+            )
+
             error?.let {
-                Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 12.dp),
+                VeilErrorBanner(
+                    message = it,
+                    modifier = Modifier.padding(top = VeilSpacing.lg),
                 )
             }
+
+            Spacer(modifier = Modifier.height(VeilSpacing.xxxl))
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(VeilSpacing.lg))
+            Text(
+                text = "Your contact can find their IDs in Settings → Identity on their Veil app.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
