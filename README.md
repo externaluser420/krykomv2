@@ -93,6 +93,41 @@ The emulator reaches your computer's localhost relay at `http://10.0.2.2:8080` (
 | Emulator won't start | Enable virtualization (BIOS/Hyper-V/WHPX), install HAXM/WHPX |
 | App can't connect to relay | Start `cargo run -p veil-relay` before sending messages |
 
+### Keep Desktop folder in sync with GitHub
+
+If you work in the cloud (Cursor Agent) but also have a local copy on Desktop
+(e.g. `~/Desktop/krykom2`), install auto-sync **once on your computer**:
+
+```bash
+cd ~/Desktop/krykom2          # or wherever your local clone lives
+bash scripts/install-desktop-sync.sh
+```
+
+This will:
+1. Clone/update `~/Desktop/krykom2` from GitHub if needed
+2. Pull the latest branch every 2 minutes automatically
+
+Manual sync anytime:
+
+```bash
+bash scripts/sync-desktop-repo.sh once
+```
+
+Custom path or branch:
+
+```bash
+VEIL_DESKTOP_REPO=~/Desktop/krykomv2 VEIL_SYNC_BRANCH=main bash scripts/install-desktop-sync.sh
+```
+
+Remove auto-sync:
+
+```bash
+bash scripts/uninstall-desktop-sync.sh
+```
+
+**Note:** GitHub pushes from the cloud agent do not push to your Desktop directly —
+your Mac/PC must pull. Auto-sync handles that in the background.
+
 ### Docker (optional)
 
 ```bash
