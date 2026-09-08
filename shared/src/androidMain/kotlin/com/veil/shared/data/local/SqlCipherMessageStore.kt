@@ -13,6 +13,8 @@ import com.veil.shared.domain.model.MessageStatus
 import com.veil.shared.domain.port.MessageStore
 import com.veil.shared.domain.port.SecureKeyStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
@@ -22,11 +24,12 @@ class SqlCipherMessageStore(
 ) : MessageStore {
     @Volatile
     private var database: VeilDatabase? = null
+    private val dbMutex = Mutex()
 
     private suspend fun db(): VeilDatabase {
         val existing = database
         if (existing != null) return existing
-        return synchronized(this) {
+        return dbMutex.withLock {
             database ?: buildDatabase().also { database = it }
         }
     }
