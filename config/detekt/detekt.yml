@@ -1,0 +1,43 @@
+build:
+  maxIssues: 0
+
+config:
+  validation: true
+
+processors:
+  active: true
+
+console-reports:
+  active: true
+
+comments:
+  active: true
+
+complexity:
+  active: true
+  LongParameterList:
+    active: true
+    functionThreshold: 8
+
+style:
+  active: true
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
+  MagicNumber:
+    active: false
+
+naming:
+  active: true
+
+potential-bugs:
+  active: true
+
+performance:
+  active: true
+
+empty-blocks:
+  active: true
+
+coroutines:
+  active: true

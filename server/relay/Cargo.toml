@@ -1,0 +1,24 @@
+[package]
+name = "veil-relay"
+description = "Stateless E2EE message relay for Veil Messenger"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "veil-relay"
+path = "src/main.rs"
+
+[dependencies]
+tokio.workspace = true
+axum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tower-http.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+# Integration tests with reqwest added in Phase 5 when CI pins Rust toolchain.

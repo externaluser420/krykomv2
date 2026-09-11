@@ -1,0 +1,25 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --save "" --appendonly no
+    profiles:
+      - redis
+
+  relay:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.relay
+    ports:
+      - "8080:8080"
+    environment:
+      VEIL_RELAY_PORT: 8080
+      RUST_LOG: veil_relay=debug
+    profiles:
+      - relay
+
+# Usage:
+#   In-memory relay (no Docker): cargo run -p veil-relay
+#   Redis for Phase 5 testing:    docker compose --profile redis up -d
+#   Relay in Docker:              docker compose --profile relay up --build

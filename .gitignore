@@ -1,0 +1,65 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Secrets
+*.p8
+*.pem
+*.key
+*.jks
+*.keystore
+google-services.json
+GoogleService-Info.plist
+local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+.vscode/settings.json
+
+# Build
+build/
+dist/
+target/
+.gradle/
+*.apk
+*.aab
+*.ipa
+*.dSYM.zip
+
+# Gradle
+local.properties
+apps/android/local.properties
+
+# Rust
+**/*.rs.bk
+
+# IDE
+*.iml
+.idea/caches/
+
+# Dependencies
+node_modules/
+.gradle/
+
+# Logs
+*.log
+
+# Test / coverage
+coverage/
+*.lcov
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Misc
+*.swp
+*~

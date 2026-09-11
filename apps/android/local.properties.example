@@ -1,0 +1,2 @@
+# Copy to apps/android/local.properties (not committed)
+sdk.dir=/path/to/Android/sdk
