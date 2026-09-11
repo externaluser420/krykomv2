@@ -1,88 +1,40 @@
-# Pull latest GitHub changes into your Desktop clone (Windows 11).
+# Sync Desktop\krykomv2 with GitHub.
+# Usage:
+#   powershell -ExecutionPolicy Bypass -File .\scripts\sync-desktop-repo.ps1
 param(
-    [ValidateSet("once", "watch", "path")]
-    [string]$Mode = "once",
-    [string]$DesktopRepo = "$env:USERPROFILE\Desktop\krykomv2",
-    [string]$Branch = "cursor/premium-gui-redesign-e58c",
-    [string]$RepoUrl = "https://github.com/externaluser420/krykomv2.git",
-    [int]$IntervalSeconds = 120
+    [string]$DesktopRepo = '',
+    [string]$Branch = 'cursor/premium-gui-redesign-e58c',
+    [string]$RepoUrl = 'https://github.com/externaluser420/krykomv2.git'
 )
 
-function Write-Log {
-    param([string]$Message)
-    Write-Host "[veil-sync] $Message"
+if ([string]::IsNullOrWhiteSpace($DesktopRepo)) {
+    $DesktopRepo = Join-Path $env:USERPROFILE 'Desktop\krykomv2'
 }
 
-function Sync-Repo {
-    param([string]$Path)
+Write-Host "[veil-sync] Target folder: $DesktopRepo"
 
-    $gitDir = Join-Path $Path ".git"
-    if (-not (Test-Path $gitDir)) {
-        Write-Log "No git repo at $Path - cloning..."
-        $parent = Split-Path $Path -Parent
-        New-Item -ItemType Directory -Force -Path $parent | Out-Null
-        git clone $RepoUrl $Path
-        if ($LASTEXITCODE -ne 0) {
-            throw "git clone failed"
-        }
-    }
-
-    Push-Location $Path
-    try {
-        git fetch origin --prune
-        if ($LASTEXITCODE -ne 0) {
-            throw "git fetch failed"
-        }
-
-        git show-ref --verify --quiet "refs/heads/$Branch" 2>$null
-        $hasLocal = ($LASTEXITCODE -eq 0)
-        git show-ref --verify --quiet "refs/remotes/origin/$Branch" 2>$null
-        $hasRemote = ($LASTEXITCODE -eq 0)
-
-        if ($hasLocal) {
-            git checkout $Branch
-            if ($LASTEXITCODE -ne 0) {
-                throw "git checkout failed"
-            }
-        } elseif ($hasRemote) {
-            git checkout -B $Branch "origin/$Branch"
-            if ($LASTEXITCODE -ne 0) {
-                throw "git checkout failed"
-            }
-        } else {
-            Write-Log "Branch '$Branch' not found on remote. Staying on current branch."
-            git pull --ff-only 2>$null
-            return
-        }
-
-        git pull --ff-only origin $Branch
-        if ($LASTEXITCODE -ne 0) {
-            throw "git pull failed"
-        }
-
-        $hash = git rev-parse --short HEAD
-        Write-Log "Synced $Path -> $Branch ($hash)"
-    } finally {
-        Pop-Location
-    }
+$gitDir = Join-Path $DesktopRepo '.git'
+if (-not (Test-Path $gitDir)) {
+    Write-Host "[veil-sync] Cloning into $DesktopRepo ..."
+    $parent = Split-Path $DesktopRepo -Parent
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    git clone $RepoUrl $DesktopRepo
+    if ($LASTEXITCODE -ne 0) { exit 1 }
 }
 
-switch ($Mode) {
-    "once" {
-        Sync-Repo -Path $DesktopRepo
-    }
-    "watch" {
-        Write-Log "Watching $DesktopRepo every ${IntervalSeconds}s (Ctrl+C to stop)"
-        while ($true) {
-            try {
-                Sync-Repo -Path $DesktopRepo
-            } catch {
-                Write-Log "Sync failed: $_"
-            }
-            Start-Sleep -Seconds $IntervalSeconds
-        }
-    }
-    "path" {
-        Write-Output $DesktopRepo
-    }
+Set-Location $DesktopRepo
+
+git fetch origin --prune
+if ($LASTEXITCODE -ne 0) { exit 1 }
+
+git checkout $Branch
+if ($LASTEXITCODE -ne 0) {
+    git checkout -B $Branch ('origin/' + $Branch)
+    if ($LASTEXITCODE -ne 0) { exit 1 }
 }
+
+git pull --ff-only origin $Branch
+if ($LASTEXITCODE -ne 0) { exit 1 }
+
+$hash = git rev-parse --short HEAD
+Write-Host "[veil-sync] Done. Branch $Branch at $hash"
