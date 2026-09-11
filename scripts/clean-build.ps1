@@ -6,10 +6,7 @@ param(
 )
 
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
-    $RepoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-    if (-not (Test-Path (Join-Path $RepoRoot 'gradlew.bat'))) {
-        $RepoRoot = Split-Path $PSScriptRoot -Parent
-    }
+    $RepoRoot = Split-Path $PSScriptRoot -Parent
 }
 
 Write-Host "[veil-clean] Repo: $RepoRoot"
