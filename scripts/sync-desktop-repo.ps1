@@ -8,24 +8,31 @@ param(
     [int]$IntervalSeconds = 120
 )
 
-function Write-Log([string]$Message) {
+function Write-Log {
+    param([string]$Message)
     Write-Host "[veil-sync] $Message"
 }
 
 function Sync-Repo {
     param([string]$Path)
 
-    if (-not (Test-Path "$Path\.git")) {
-        Write-Log "No git repo at $Path — cloning..."
-        New-Item -ItemType Directory -Force -Path (Split-Path $Path) | Out-Null
+    $gitDir = Join-Path $Path ".git"
+    if (-not (Test-Path $gitDir)) {
+        Write-Log "No git repo at $Path - cloning..."
+        $parent = Split-Path $Path -Parent
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
         git clone $RepoUrl $Path
-        if ($LASTEXITCODE -ne 0) { throw "git clone failed" }
+        if ($LASTEXITCODE -ne 0) {
+            throw "git clone failed"
+        }
     }
 
     Push-Location $Path
     try {
         git fetch origin --prune
-        if ($LASTEXITCODE -ne 0) { throw "git fetch failed" }
+        if ($LASTEXITCODE -ne 0) {
+            throw "git fetch failed"
+        }
 
         git show-ref --verify --quiet "refs/heads/$Branch" 2>$null
         $hasLocal = ($LASTEXITCODE -eq 0)
@@ -34,10 +41,14 @@ function Sync-Repo {
 
         if ($hasLocal) {
             git checkout $Branch
-            if ($LASTEXITCODE -ne 0) { throw "git checkout failed" }
+            if ($LASTEXITCODE -ne 0) {
+                throw "git checkout failed"
+            }
         } elseif ($hasRemote) {
             git checkout -B $Branch "origin/$Branch"
-            if ($LASTEXITCODE -ne 0) { throw "git checkout failed" }
+            if ($LASTEXITCODE -ne 0) {
+                throw "git checkout failed"
+            }
         } else {
             Write-Log "Branch '$Branch' not found on remote. Staying on current branch."
             git pull --ff-only 2>$null
@@ -45,7 +56,9 @@ function Sync-Repo {
         }
 
         git pull --ff-only origin $Branch
-        if ($LASTEXITCODE -ne 0) { throw "git pull failed" }
+        if ($LASTEXITCODE -ne 0) {
+            throw "git pull failed"
+        }
 
         $hash = git rev-parse --short HEAD
         Write-Log "Synced $Path -> $Branch ($hash)"
